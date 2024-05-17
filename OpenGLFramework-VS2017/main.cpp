@@ -27,6 +27,13 @@ bool mouse_pressed = false;
 int starting_press_x = -1;
 int starting_press_y = -1;
 
+// My additional useful values & function
+const float PI = (float)atan(1) * 4;
+inline float degree_to_radian(double degree)
+{
+	return (float)(degree * PI / 180);
+}
+
 enum TransMode
 {
 	GeoTranslation = 0,
@@ -122,11 +129,11 @@ Matrix4 translate(Vector3 vec)
 {
 	Matrix4 mat;
 
-	/*
 	mat = Matrix4(
-		...
-	);
-	*/
+		1, 0, 0, vec.x,
+		0, 1, 0, vec.y,
+		0, 0, 1, vec.z,
+		0, 0, 0, 1);
 
 	return mat;
 }
@@ -136,11 +143,11 @@ Matrix4 scaling(Vector3 vec)
 {
 	Matrix4 mat;
 
-	/*
 	mat = Matrix4(
-		...
-	);
-	*/
+		vec.x, 0, 0, 0,
+		0, vec.y, 0, 0,
+		0, 0, vec.z, 0,
+		0, 0, 0, 1);
 
 	return mat;
 }
@@ -150,11 +157,11 @@ Matrix4 rotateX(GLfloat val)
 {
 	Matrix4 mat;
 
-	/*
 	mat = Matrix4(
-		...
-	);
-	*/
+		1, 0, 0, 0,
+		0, cos(val), -sin(val), 0,
+		0, sin(val), cos(val), 0,
+		0, 0, 0, 1);
 
 	return mat;
 }
@@ -164,11 +171,11 @@ Matrix4 rotateY(GLfloat val)
 {
 	Matrix4 mat;
 
-	/*
 	mat = Matrix4(
-		...
-	);
-	*/
+		cos(val), 0, sin(val), 0,
+		0, 1, 0, 0,
+		-sin(val), 0, cos(val), 0,
+		0, 0, 0, 1);
 
 	return mat;
 }
@@ -178,11 +185,11 @@ Matrix4 rotateZ(GLfloat val)
 {
 	Matrix4 mat;
 
-	/*
 	mat = Matrix4(
-		...
-	);
-	*/
+		cos(val), -sin(val), 0, 0,
+		sin(val), cos(val), 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1);
 
 	return mat;
 }
@@ -195,14 +202,41 @@ Matrix4 rotate(Vector3 vec)
 // [TODO] compute viewing matrix accroding to the setting of main_camera
 void setViewingMatrix()
 {
-	// view_matrix[...] = ...
+	Vector3 Z = (main_camera.center - main_camera.position);
+	Z.normalize();
+	Vector3 X = Z.cross(main_camera.up_vector);
+	X.normalize();
+	Vector3 Y = X.cross(Z).normalize();
+
+	Matrix4 R = Matrix4(
+		X.x, X.y, X.z, 0,
+		Y.x, Y.y, Y.z, 0,
+		-Z.x, -Z.y, -Z.z, 0,
+		0, 0, 0, 1);
+
+	Matrix4 T = Matrix4(
+		1, 0, 0, -main_camera.position.x,
+		0, 1, 0, -main_camera.position.y,
+		0, 0, 1, -main_camera.position.z,
+		0, 0, 0, 1);
+
+	view_matrix = R * T;
 }
 
 // [TODO] compute persepective projection matrix
 void setPerspective()
 {
-	// GLfloat f = ...
-	// project_matrix [...] = ...
+	float f = 1 / tan(degree_to_radian(proj.fovy) / 2);
+	float z = (proj.farClip + proj.nearClip) / (proj.nearClip - proj.farClip);
+	float t_z = (2 * proj.farClip * proj.nearClip) / (proj.nearClip - proj.farClip);
+
+	project_matrix = Matrix4(
+		f, 0, 0, 0,
+		0, f, 0, 0,
+		0, 0, z, t_z,
+		0, 0, -1, 0);
+
+	project_matrix[0] = f / (proj.aspect / 2);
 }
 
 void setGLMatrix(GLfloat *glm, Matrix4 &m)
@@ -226,13 +260,24 @@ void setGLMatrix(GLfloat *glm, Matrix4 &m)
 }
 
 // Vertex buffers
-GLuint VAO, VBO;
+GLuint VAO, VBO, VBO_COLOR;
 
 // Call back function for window reshape
 void ChangeSize(GLFWwindow *window, int width, int height)
 {
 	glViewport(0, 0, width, height);
 	// [TODO] change your aspect ratio
+	// Prevent divided by 0
+	if (height == 0)
+	{
+		return;
+	}
+
+	proj.aspect = (float)width / (float)height;
+
+	// Perspective mode only
+	float f = 1 / tan(degree_to_radian(proj.fovy) / 2);
+	project_matrix[0] = f / (proj.aspect / 2);
 }
 
 // Render function for display rendering
@@ -243,11 +288,15 @@ void RenderScene(void)
 
 	Matrix4 T, R, S;
 	// [TODO] update translation, rotation and scaling
+	T = translate(models[cur_idx].position);
+	R = rotate(models[cur_idx].rotation);
+	S = scaling(models[cur_idx].scale);
 
 	Matrix4 MVP;
 	GLfloat mvp[16];
 
 	// [TODO] multiply all the matrix
+	MVP = project_matrix * view_matrix * T * R * S;
 	// row-major ---> column-major
 	setGLMatrix(mvp, MVP);
 
@@ -264,21 +313,116 @@ void RenderScene(void)
 void KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
 	// [TODO] Call back function for keyboard
+
+	// fix duplicate execute
+	if (action != GLFW_PRESS)
+	{
+		return;
+	}
+
+	switch (key)
+	{
+	case GLFW_KEY_Z:
+		cur_idx = cur_idx == 0 ? models.size() - 1 : cur_idx - 1;
+		std::cout << "Model " << cur_idx + 1 << " is selected.\n";
+		break;
+	case GLFW_KEY_X:
+		cur_idx = cur_idx == models.size() - 1 ? 0 : cur_idx + 1;
+		std::cout << "Model " << cur_idx + 1 << " is selected.\n";
+		break;
+	case GLFW_KEY_LEFT:
+		cur_idx = cur_idx == 0 ? models.size() - 1 : cur_idx - 1;
+		std::cout << "Model " << cur_idx + 1 << " is selected.\n";
+		break;
+	case GLFW_KEY_RIGHT:
+		cur_idx = cur_idx == models.size() - 1 ? 0 : cur_idx + 1;
+		std::cout << "Model " << cur_idx + 1 << " is selected.\n";
+		break;
+	case GLFW_KEY_T:
+		cur_trans_mode = GeoTranslation;
+		break;
+	case GLFW_KEY_S:
+		cur_trans_mode = GeoScaling;
+		break;
+	case GLFW_KEY_R:
+		cur_trans_mode = GeoRotation;
+		break;
+	default:
+		break;
+	}
 }
 
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
 {
-	// [TODO] scroll up positive, otherwise it would be negtive
+	// [TODO] scroll up positive, otherwise it would be negative
+	switch (cur_trans_mode)
+	{
+	case GeoTranslation:
+		models[cur_idx].position.z += (float)yoffset / 10;
+		break;
+	case GeoScaling:
+		models[cur_idx].scale.z += (float)yoffset / 10;
+		break;
+	case GeoRotation:
+		models[cur_idx].rotation.z += (float)yoffset / 10;
+		break;
+	default:
+		break;
+	}
 }
 
 void mouse_button_callback(GLFWwindow *window, int button, int action, int mods)
 {
 	// [TODO] mouse press callback function
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+	{
+		mouse_pressed = true;
+	}
+
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
+	{
+		mouse_pressed = false;
+	}
 }
+
+float current_press_x = (float)starting_press_x;
+float current_press_y = (float)starting_press_y;
 
 static void cursor_pos_callback(GLFWwindow *window, double xpos, double ypos)
 {
 	// [TODO] cursor position callback function
+	float dif_x = xpos - current_press_x;
+	float dif_y = current_press_y - ypos;
+	current_press_x = xpos;
+	current_press_y = ypos;
+
+	// execute while only holding (left-mouse) clicked
+	if (!mouse_pressed)
+	{
+		return;
+	}
+
+	switch (cur_trans_mode)
+	{
+	case GeoTranslation:
+		models[cur_idx].position.x += dif_x / 100;
+		models[cur_idx].position.y += dif_y / 100;
+		break;
+	case GeoScaling:
+		models[cur_idx].scale.x += dif_x / 100;
+		models[cur_idx].scale.y += dif_y / 100;
+		break;
+	case GeoRotation:
+		models[cur_idx].rotation.x += PI / 180 * dif_y;
+		models[cur_idx].rotation.y -= PI / 180 * dif_x;
+
+		// Alternative rotating direction
+		// models[cur_idx].rotation.x -= PI / 180 * dif_y;
+		// models[cur_idx].rotation.y += PI / 180 * dif_x;
+		break;
+	default:
+		return;
+	}
 }
 
 void setShaders()
@@ -609,7 +753,10 @@ void setupRC()
 	glClearColor(0.2, 0.2, 0.2, 1.0);
 	vector<string> model_list{"../NormalModels/bunny5KN.obj", "../NormalModels/dragon10KN.obj", "../NormalModels/lucy25KN.obj", "../NormalModels/teapot4KN.obj", "../NormalModels/dolphinN.obj"};
 	// [TODO] Load five model at here
-	LoadModels(model_list[cur_idx]);
+	for (int i = 0; i < model_list.size(); i++)
+	{
+		LoadModels(model_list[i]);
+	}
 }
 
 void glPrintContextInfo(bool printExtension)
@@ -643,7 +790,7 @@ int main(int argc, char **argv)
 #endif
 
 	// create window
-	GLFWwindow *window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Student ID HW2", NULL, NULL);
+	GLFWwindow *window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "112065431 ID HW2", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW window" << std::endl;
