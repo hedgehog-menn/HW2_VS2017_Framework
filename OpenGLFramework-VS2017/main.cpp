@@ -20,8 +20,8 @@
 using namespace std;
 
 // Default window size
-const int WINDOW_WIDTH = 800;
-const int WINDOW_HEIGHT = 800;
+int WINDOW_WIDTH = 800;
+int WINDOW_HEIGHT = 800;
 
 bool mouse_pressed = false;
 int starting_press_x = -1;
@@ -33,6 +33,42 @@ inline float degree_to_radian(double degree)
 {
 	return (float)(degree * PI / 180);
 }
+int isPerPixelLighting = 0;
+
+enum LightMode
+{
+	DirectionalLight = 0,
+	PositionalLight = 1,
+	SpotLight = 2
+};
+
+struct iLocLight
+{
+	GLuint position;
+	GLuint ambient;
+	GLuint diffuse;
+	GLuint specular;
+	GLuint spotDirection;
+	GLuint spotCutoff;
+	GLuint spotExponent;
+	GLuint constantAttenuation;
+	GLuint linearAttenuation;
+	GLuint quadraticAttenuation;
+} iLocLight[3];
+
+struct Light
+{
+	Vector3 position;
+	Vector3 ambient;
+	Vector3 diffuse;
+	Vector3 specular;
+	Vector3 spotDirection;
+	GLuint spotCutoff;
+	GLuint spotExponent;
+	GLuint constantAttenuation;
+	GLuint linearAttenuation;
+	GLuint quadraticAttenuation;
+} light[3];
 
 enum TransMode
 {
@@ -46,6 +82,13 @@ enum TransMode
 struct Uniform
 {
 	GLint iLocMVP;
+	GLint iLocM;
+	GLint iLocV;
+	GLint Ka;
+	GLint Kd;
+	GLint Ks;
+	GLint LightMode;
+	GLint Shininess;
 };
 Uniform uniform;
 
@@ -100,6 +143,7 @@ struct project_setting
 project_setting proj;
 
 TransMode cur_trans_mode = GeoTranslation;
+LightMode cur_light_mode = DirectionalLight;
 
 Matrix4 view_matrix;
 Matrix4 project_matrix;
@@ -260,7 +304,7 @@ void setGLMatrix(GLfloat *glm, Matrix4 &m)
 }
 
 // Vertex buffers
-GLuint VAO, VBO, VBO_COLOR;
+GLuint VAO, VBO;
 
 // Call back function for window reshape
 void ChangeSize(GLFWwindow *window, int width, int height)
@@ -274,6 +318,8 @@ void ChangeSize(GLFWwindow *window, int width, int height)
 	}
 
 	proj.aspect = (float)width / (float)height;
+	WINDOW_WIDTH = width;
+	WINDOW_HEIGHT = height;
 
 	// Perspective mode only
 	float f = 1 / tan(degree_to_radian(proj.fovy) / 2);
@@ -292,19 +338,64 @@ void RenderScene(void)
 	R = rotate(models[cur_idx].rotation);
 	S = scaling(models[cur_idx].scale);
 
-	Matrix4 MVP;
-	GLfloat mvp[16];
+	Matrix4 MVP, model_matrix;
+	GLfloat mvp[16], m[16], v[16];
 
 	// [TODO] multiply all the matrix
-	MVP = project_matrix * view_matrix * T * R * S;
+	model_matrix = T * R * S;
+	MVP = project_matrix * view_matrix * model_matrix;
 	// row-major ---> column-major
 	setGLMatrix(mvp, MVP);
+	setGLMatrix(m, model_matrix);
+	setGLMatrix(v, view_matrix);
 
 	// use uniform to send mvp to vertex shader
 	glUniformMatrix4fv(uniform.iLocMVP, 1, GL_FALSE, mvp);
+	// use uniform to send view_matrix to vertex shader
+	glUniformMatrix4fv(uniform.iLocV, 1, GL_FALSE, v);
+	// use uniform to send model_matrix to vertex shader
+	glUniformMatrix4fv(uniform.iLocM, 1, GL_FALSE, m);
+
+	// Update light detail
+	glUniform1i(uniform.LightMode, cur_light_mode);
+	// glUniform1f(uniform.iLocShininess, shininess);
+	for (int i = 0; i <= 2; i++)
+	{
+		glUniform3fv(iLocLight[i].ambient, 1, &light[0].ambient[0]);
+		glUniform3fv(iLocLight[i].diffuse, 1, &light[0].diffuse[0]);
+		glUniform3fv(iLocLight[i].specular, 1, &light[0].specular[0]);
+	}
+	glUniform3fv(iLocLight[0].position, 1, &light[0].position[0]);
+	glUniform3fv(iLocLight[1].position, 1, &light[1].position[0]);
+	glUniform1f(iLocLight[1].constantAttenuation, light[1].constantAttenuation);
+	glUniform1f(iLocLight[1].linearAttenuation, light[1].linearAttenuation);
+	glUniform1f(iLocLight[1].quadraticAttenuation, light[1].quadraticAttenuation);
+	glUniform3fv(iLocLight[2].position, 1, &light[2].position[0]);
+	glUniform3fv(iLocLight[2].spotDirection, 1, &light[2].spotDirection[0]);
+	glUniform1f(iLocLight[2].spotExponent, light[2].spotExponent);
+	glUniform1f(iLocLight[2].spotCutoff, light[2].spotCutoff);
+	glUniform1f(iLocLight[2].constantAttenuation, light[2].constantAttenuation);
+	glUniform1f(iLocLight[2].linearAttenuation, light[2].linearAttenuation);
+	glUniform1f(iLocLight[2].quadraticAttenuation, light[2].quadraticAttenuation);
+
 	for (int i = 0; i < models[cur_idx].shapes.size(); i++)
 	{
 		// set glViewport and draw twice ...
+		glUniform3fv(uniform.Ka, 1, &models[cur_idx].shapes[i].material.Ka[0]);
+		glUniform3fv(uniform.Kd, 1, &models[cur_idx].shapes[i].material.Kd[0]);
+		glUniform3fv(uniform.Ks, 1, &models[cur_idx].shapes[i].material.Ks[0]);
+
+		/* draw left */
+		glUniform1i(isPerPixelLighting, 0);
+		glViewport(0, 0, WINDOW_WIDTH / 2, WINDOW_HEIGHT);
+
+		glBindVertexArray(models[cur_idx].shapes[i].vao);
+		glDrawArrays(GL_TRIANGLES, 0, models[cur_idx].shapes[i].vertex_count);
+
+		/* draw right */
+		glUniform1i(isPerPixelLighting, 1);
+		glViewport(WINDOW_WIDTH / 2, 0, WINDOW_WIDTH / 2, WINDOW_HEIGHT);
+
 		glBindVertexArray(models[cur_idx].shapes[i].vao);
 		glDrawArrays(GL_TRIANGLES, 0, models[cur_idx].shapes[i].vertex_count);
 	}
@@ -738,6 +829,35 @@ void initParameter()
 	main_camera.position = Vector3(0.0f, 0.0f, 2.0f);
 	main_camera.center = Vector3(0.0f, 0.0f, 0.0f);
 	main_camera.up_vector = Vector3(0.0f, 1.0f, 0.0f);
+
+	// Initialize light data for directional light
+	light[0].position = Vector3(1.0f, 1.0f, 1.0f);
+	light[0].ambient = Vector3(0.15f, 0.15f, 0.15f);
+	light[0].diffuse = Vector3(1.0f, 1.0f, 1.0f);
+	light[0].specular = Vector3(1.0f, 1.0f, 1.0f);
+
+	// Initialize light data for point light
+	light[1].position = Vector3(0.0f, 2.0f, 1.0f);
+	light[1].ambient = Vector3(0.15f, 0.15f, 0.15f);
+	light[1].diffuse = Vector3(1.0f, 1.0f, 1.0f);
+	light[1].specular = Vector3(1.0f, 1.0f, 1.0f);
+
+	light[1].constantAttenuation = 0.01f;
+	light[1].linearAttenuation = 0.8f;
+	light[1].quadraticAttenuation = 0.1f;
+
+	// Initialize light data for spot light
+	light[2].position = Vector3(0.0f, 0.0f, 2.0f);
+	light[2].ambient = Vector3(0.15f, 0.15f, 0.15f);
+	light[2].diffuse = Vector3(1.0f, 1.0f, 1.0f);
+	light[2].specular = Vector3(1.0f, 1.0f, 1.0f);
+	light[2].spotDirection = Vector3(0.0f, 0.0f, -1.0f);
+
+	light[2].spotExponent = 50;
+	light[2].spotCutoff = degree_to_radian(30);
+	light[2].constantAttenuation = 0.05f;
+	light[2].linearAttenuation = 0.3f;
+	light[2].quadraticAttenuation = 0.6f;
 
 	setViewingMatrix();
 	setPerspective(); // set default projection matrix as perspective matrix
