@@ -34,6 +34,7 @@ inline float degree_to_radian(double degree)
 	return (float)(degree * PI / 180);
 }
 int isPerPixelLighting = 0;
+GLfloat shininess;
 
 enum LightMode
 {
@@ -358,7 +359,7 @@ void RenderScene(void)
 
 	// Update light detail
 	glUniform1i(uniform.LightMode, cur_light_mode);
-	// glUniform1f(uniform.iLocShininess, shininess);
+	glUniform1f(uniform.Shininess, shininess);
 	for (int i = 0; i <= 2; i++)
 	{
 		glUniform3fv(iLocLight[i].ambient, 1, &light[0].ambient[0]);
@@ -580,6 +581,31 @@ void setShaders()
 	glDeleteShader(f);
 
 	uniform.iLocMVP = glGetUniformLocation(p, "mvp");
+	uniform.iLocV = glGetUniformLocation(p, "view_matrix");
+	uniform.iLocM = glGetUniformLocation(p, "model_matrix");
+
+	uniform.Ka = glGetUniformLocation(p, "material.Ka");
+	uniform.Kd = glGetUniformLocation(p, "material.Kd");
+	uniform.Ks = glGetUniformLocation(p, "material.Ks");
+
+	uniform.LightMode = glGetUniformLocation(p, "cur_light_mode");
+	uniform.Shininess = glGetUniformLocation(p, "shininess");
+	// uniform.iLocIsPerPixelLighting = glGetUniformLocation(p, "isPerPixelLighting");
+	isPerPixelLighting = glGetUniformLocation(p, "isPerPixelLighting");
+
+	for (int i = 0; i <= 2; i++)
+	{
+		iLocLight[i].position = glGetUniformLocation(p, ("light[" + std::to_string(i) + "].position").c_str());
+		iLocLight[i].ambient = glGetUniformLocation(p, ("light[" + std::to_string(i) + "].ambient").c_str());
+		iLocLight[i].diffuse = glGetUniformLocation(p, ("light[" + std::to_string(i) + "].diffuse").c_str());
+		iLocLight[i].specular = glGetUniformLocation(p, ("light[" + std::to_string(i) + "].specular").c_str());
+		iLocLight[i].constantAttenuation = glGetUniformLocation(p, ("light[" + std::to_string(i) + "].constantAttenuation").c_str());
+		iLocLight[i].linearAttenuation = glGetUniformLocation(p, ("light[" + std::to_string(i) + "].linearAttenuation").c_str());
+		iLocLight[i].quadraticAttenuation = glGetUniformLocation(p, ("light[" + std::to_string(i) + "].quadraticAttenuation").c_str());
+		iLocLight[i].spotDirection = glGetUniformLocation(p, ("light[" + std::to_string(i) + "].spotDirection").c_str());
+		iLocLight[i].spotCutoff = glGetUniformLocation(p, ("light[" + std::to_string(i) + "].spotCutoff").c_str());
+		iLocLight[i].spotExponent = glGetUniformLocation(p, ("light[" + std::to_string(i) + "].spotExponent").c_str());
+	}
 
 	if (success)
 		glUseProgram(p);
@@ -830,34 +856,36 @@ void initParameter()
 	main_camera.center = Vector3(0.0f, 0.0f, 0.0f);
 	main_camera.up_vector = Vector3(0.0f, 1.0f, 0.0f);
 
-	// Initialize light data for directional light
+	// Directional light
 	light[0].position = Vector3(1.0f, 1.0f, 1.0f);
 	light[0].ambient = Vector3(0.15f, 0.15f, 0.15f);
 	light[0].diffuse = Vector3(1.0f, 1.0f, 1.0f);
 	light[0].specular = Vector3(1.0f, 1.0f, 1.0f);
+	light[0].constantAttenuation = 0.0f;
+	light[0].linearAttenuation = 0.0f;
+	light[0].quadraticAttenuation = 0.0f;
 
-	// Initialize light data for point light
+	// Positional light
 	light[1].position = Vector3(0.0f, 2.0f, 1.0f);
 	light[1].ambient = Vector3(0.15f, 0.15f, 0.15f);
 	light[1].diffuse = Vector3(1.0f, 1.0f, 1.0f);
 	light[1].specular = Vector3(1.0f, 1.0f, 1.0f);
-
 	light[1].constantAttenuation = 0.01f;
 	light[1].linearAttenuation = 0.8f;
 	light[1].quadraticAttenuation = 0.1f;
 
-	// Initialize light data for spot light
+	// Spot light
 	light[2].position = Vector3(0.0f, 0.0f, 2.0f);
 	light[2].ambient = Vector3(0.15f, 0.15f, 0.15f);
 	light[2].diffuse = Vector3(1.0f, 1.0f, 1.0f);
 	light[2].specular = Vector3(1.0f, 1.0f, 1.0f);
-	light[2].spotDirection = Vector3(0.0f, 0.0f, -1.0f);
-
-	light[2].spotExponent = 50;
-	light[2].spotCutoff = degree_to_radian(30);
 	light[2].constantAttenuation = 0.05f;
 	light[2].linearAttenuation = 0.3f;
 	light[2].quadraticAttenuation = 0.6f;
+
+	light[2].spotDirection = Vector3(0.0f, 0.0f, -1.0f);
+	light[2].spotExponent = 50;
+	light[2].spotCutoff = degree_to_radian(30);
 
 	setViewingMatrix();
 	setPerspective(); // set default projection matrix as perspective matrix
