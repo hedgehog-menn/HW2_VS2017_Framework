@@ -39,7 +39,7 @@ GLfloat shininess;
 enum LightMode
 {
 	DirectionalLight = 0,
-	PositionalLight = 1,
+	PointLight = 1,
 	SpotLight = 2
 };
 
@@ -64,11 +64,11 @@ struct Light
 	Vector3 diffuse;
 	Vector3 specular;
 	Vector3 spotDirection;
-	GLuint spotCutoff;
-	GLuint spotExponent;
-	GLuint constantAttenuation;
-	GLuint linearAttenuation;
-	GLuint quadraticAttenuation;
+	GLfloat spotCutoff;
+	GLfloat spotExponent;
+	GLfloat constantAttenuation;
+	GLfloat linearAttenuation;
+	GLfloat quadraticAttenuation;
 } light[3];
 
 enum TransMode
@@ -439,6 +439,26 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
 	case GLFW_KEY_R:
 		cur_trans_mode = GeoRotation;
 		break;
+	case GLFW_KEY_L:
+		// Change Light Mode
+		switch (cur_light_mode)
+		{
+		case DirectionalLight:
+			cur_light_mode = PointLight;
+			std::cout << "Light mode: " << "Point light\n";
+			break;
+		case PointLight:
+			cur_light_mode = SpotLight;
+			std::cout << "Light mode: " << "Spot light\n";
+			break;
+		case SpotLight:
+			cur_light_mode = DirectionalLight;
+			std::cout << "Light mode: " << "Directional light\n";
+			break;
+		default:
+			break;
+		}
+		break;
 	default:
 		break;
 	}
@@ -592,6 +612,7 @@ void setShaders()
 	uniform.Shininess = glGetUniformLocation(p, "shininess");
 	is_per_pixel_lighting = glGetUniformLocation(p, "is_per_pixel_lighting");
 
+	// Directional/Point/Spot light
 	for (int i = 0; i <= 2; i++)
 	{
 		iLocLight[i].position = glGetUniformLocation(p, ("light[" + std::to_string(i) + "].position").c_str());
@@ -864,7 +885,7 @@ void initParameter()
 	light[0].linearAttenuation = 0.0f;
 	light[0].quadraticAttenuation = 0.0f;
 
-	// Positional light
+	// Point light
 	light[1].position = Vector3(0.0f, 2.0f, 1.0f);
 	light[1].ambient = Vector3(0.15f, 0.15f, 0.15f);
 	light[1].diffuse = Vector3(1.0f, 1.0f, 1.0f);
@@ -883,10 +904,10 @@ void initParameter()
 	light[2].quadraticAttenuation = 0.6f;
 
 	light[2].spotDirection = Vector3(0.0f, 0.0f, -1.0f);
-	light[2].spotExponent = 50;
-	light[2].spotCutoff = degree_to_radian(30);
+	light[2].spotExponent = 50.0f;
+	light[2].spotCutoff = degree_to_radian(30.0);
 
-	shininess = 60.0f;
+	shininess = 64.0f;
 
 	setViewingMatrix();
 	setPerspective(); // set default projection matrix as perspective matrix
@@ -906,6 +927,8 @@ void setupRC()
 	{
 		LoadModels(model_list[i]);
 	}
+	std::cout << "Model " << cur_idx + 1 << " is selected.\n";
+	std::cout << "Light mode: " << "Directional light\n";
 }
 
 void glPrintContextInfo(bool printExtension)

@@ -67,7 +67,7 @@ void main()
 		vertex_color = ambient + diffuse + specular;
 	}
 
-	// Positional light
+	// Point light
 	if (cur_light_mode == 1)
 	{
 		lightInView = view_matrix * vec4(light[1].position, 1.0f);
@@ -75,13 +75,16 @@ void main()
 		H = normalize(L + V);
 
 		float dis = length(lightInView.xyz + V);
-		float f = 1 / (light[1].constantAttenuation + light[1].linearAttenuation * dis + pow(dis, 2) * light[1].quadraticAttenuation);
+		float attenuation = light[1].constantAttenuation +
+							light[1].linearAttenuation * dis +
+							light[1].quadraticAttenuation * pow(dis, 2);
+		float f = 1.0f / attenuation;
 
 		vec3 ambient = light[1].ambient * material.Ka;
 		vec3 diffuse = light[1].diffuse * max(dot(L, N), 0.0) * material.Kd;
 		vec3 specular = light[1].specular * pow(max(dot(H, N), 0.0), shininess) * material.Ks;
 
-		vertex_color = f * (ambient + diffuse + specular);
+		vertex_color = ambient + f * (diffuse + specular);
 	}
 
 	// Spot light
@@ -93,7 +96,10 @@ void main()
 
 		float spot = dot(-L, normalize(light[2].spotDirection.xyz));
 		float dis = length(lightInView.xyz + V);
-		float f = 1 / (light[2].constantAttenuation + light[2].linearAttenuation * dis + pow(dis, 2) * light[2].quadraticAttenuation);
+		float attenuation = light[2].constantAttenuation +
+							light[2].linearAttenuation * dis +
+							light[2].quadraticAttenuation * pow(dis, 2);
+		float f = 1.0f / attenuation;
 
 		vec3 ambient = light[2].ambient * material.Ka;
 		vec3 diffuse = light[2].diffuse * max(dot(L, N), 0.0) * material.Kd;

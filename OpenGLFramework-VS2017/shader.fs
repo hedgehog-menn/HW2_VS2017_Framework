@@ -31,7 +31,7 @@ uniform mat4 view_matrix;
 uniform Light light[3];
 uniform PhongMaterial material;
 uniform float shininess;
-uniform int isPerPixelLighting;
+uniform int is_per_pixel_lighting;
 
 vec4 lightInView;
 vec3 L, H;
@@ -57,7 +57,7 @@ void main()
 		frag_color = ambient + diffuse + specular;
 	}
 
-	// Positional light
+	// Point light
 	if (cur_light_mode == 1)
 	{
 		lightInView = view_matrix * vec4(light[1].position, 1.0f);
@@ -65,13 +65,16 @@ void main()
 		H = normalize(L + V);
 
 		float dis = length(lightInView.xyz + V);
-		float f = 1 / (light[1].constantAttenuation + light[1].linearAttenuation * dis + pow(dis, 2) * light[1].quadraticAttenuation);
+		float attenuation = light[1].constantAttenuation +
+							light[1].linearAttenuation * dis +
+							light[1].quadraticAttenuation * pow(dis, 2);
+		float f = 1.0f / attenuation;
 
 		vec3 ambient = light[1].ambient * material.Ka;
 		vec3 diffuse = light[1].diffuse * max(dot(L, N), 0.0) * material.Kd;
 		vec3 specular = light[1].specular * pow(max(dot(H, N), 0.0), shininess) * material.Ks;
 
-		frag_color = f * (ambient + diffuse + specular);
+		frag_color = ambient + f * (diffuse + specular);
 	}
 
 	// Spot light
@@ -82,8 +85,11 @@ void main()
 		H = normalize(L + V);
 
 		float spot = dot(-L, normalize(light[2].spotDirection.xyz));
-		float dis = length(lightInView.xyz + V);
-		float f = 1 / (light[2].constantAttenuation + light[2].linearAttenuation * dis + pow(dis, 2) * light[2].quadraticAttenuation);
+		float dis = length(lightInView.xyz - V);
+		float attenuation = light[1].constantAttenuation +
+							light[1].linearAttenuation * dis +
+							light[1].quadraticAttenuation * pow(dis, 2);
+		float f = 1.0f / attenuation;
 
 		vec3 ambient = light[2].ambient * material.Ka;
 		vec3 diffuse = light[2].diffuse * max(dot(L, N), 0.0) * material.Kd;
@@ -92,5 +98,5 @@ void main()
 		frag_color = ambient + f * (spot < light[2].spotCutoff ? 0 : pow(max(spot, 0), light[2].spotExponent)) * (diffuse + specular);
 	}
 
-	FragColor = (isPerPixelLighting == 0) ? vec4(vertex_color, 1.0f) : vec4(frag_color, 1.0f);
+	FragColor = (is_per_pixel_lighting == 0) ? vec4(vertex_color, 1.0f) : vec4(frag_color, 1.0f);
 }
