@@ -33,7 +33,7 @@ inline float degree_to_radian(double degree)
 {
 	return (float)(degree * PI / 180);
 }
-int isPerPixelLighting = 0;
+int is_per_pixel_lighting = 0;
 GLfloat shininess;
 
 enum LightMode
@@ -387,14 +387,14 @@ void RenderScene(void)
 		glUniform3fv(uniform.Ks, 1, &models[cur_idx].shapes[i].material.Ks[0]);
 
 		/* draw left */
-		glUniform1i(isPerPixelLighting, 0);
+		glUniform1i(is_per_pixel_lighting, 0);
 		glViewport(0, 0, WINDOW_WIDTH / 2, WINDOW_HEIGHT);
 
 		glBindVertexArray(models[cur_idx].shapes[i].vao);
 		glDrawArrays(GL_TRIANGLES, 0, models[cur_idx].shapes[i].vertex_count);
 
 		/* draw right */
-		glUniform1i(isPerPixelLighting, 1);
+		glUniform1i(is_per_pixel_lighting, 1);
 		glViewport(WINDOW_WIDTH / 2, 0, WINDOW_WIDTH / 2, WINDOW_HEIGHT);
 
 		glBindVertexArray(models[cur_idx].shapes[i].vao);
@@ -590,8 +590,7 @@ void setShaders()
 
 	uniform.LightMode = glGetUniformLocation(p, "cur_light_mode");
 	uniform.Shininess = glGetUniformLocation(p, "shininess");
-	// uniform.iLocIsPerPixelLighting = glGetUniformLocation(p, "isPerPixelLighting");
-	isPerPixelLighting = glGetUniformLocation(p, "isPerPixelLighting");
+	is_per_pixel_lighting = glGetUniformLocation(p, "is_per_pixel_lighting");
 
 	for (int i = 0; i <= 2; i++)
 	{
@@ -886,6 +885,8 @@ void initParameter()
 	light[2].spotDirection = Vector3(0.0f, 0.0f, -1.0f);
 	light[2].spotExponent = 50;
 	light[2].spotCutoff = degree_to_radian(30);
+
+	shininess = 60.0f;
 
 	setViewingMatrix();
 	setPerspective(); // set default projection matrix as perspective matrix
