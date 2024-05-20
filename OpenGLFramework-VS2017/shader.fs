@@ -86,9 +86,9 @@ void main()
 
 		float spot = dot(-L, normalize(light[2].spotDirection.xyz));
 		float dis = length(lightInView.xyz - V);
-		float attenuation = light[1].constantAttenuation +
-							light[1].linearAttenuation * dis +
-							light[1].quadraticAttenuation * pow(dis, 2);
+		float attenuation = light[2].constantAttenuation +
+							light[2].linearAttenuation * dis +
+							light[2].quadraticAttenuation * pow(dis, 2);
 		float f = 1.0f / attenuation;
 
 		vec3 ambient = light[2].ambient * material.Ka;

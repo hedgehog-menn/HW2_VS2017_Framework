@@ -362,9 +362,9 @@ void RenderScene(void)
 	glUniform1f(uniform.Shininess, shininess);
 	for (int i = 0; i <= 2; i++)
 	{
-		glUniform3fv(iLocLight[i].ambient, 1, &light[0].ambient[0]);
-		glUniform3fv(iLocLight[i].diffuse, 1, &light[0].diffuse[0]);
-		glUniform3fv(iLocLight[i].specular, 1, &light[0].specular[0]);
+		glUniform3fv(iLocLight[i].ambient, 1, &light[i].ambient[0]);
+		glUniform3fv(iLocLight[i].diffuse, 1, &light[i].diffuse[0]);
+		glUniform3fv(iLocLight[i].specular, 1, &light[i].specular[0]);
 	}
 	glUniform3fv(iLocLight[0].position, 1, &light[0].position[0]);
 	glUniform3fv(iLocLight[1].position, 1, &light[1].position[0]);
@@ -459,6 +459,12 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
 			break;
 		}
 		break;
+	case GLFW_KEY_K:
+		cur_trans_mode = LightEdit;
+		break;
+	case GLFW_KEY_J:
+		cur_trans_mode = ShininessEdit;
+		break;
 	default:
 		break;
 	}
@@ -470,13 +476,38 @@ void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
 	switch (cur_trans_mode)
 	{
 	case GeoTranslation:
-		models[cur_idx].position.z += (float)yoffset / 10;
+		models[cur_idx].position.z += (float)yoffset / 10.0f;
 		break;
 	case GeoScaling:
-		models[cur_idx].scale.z += (float)yoffset / 10;
+		models[cur_idx].scale.z += (float)yoffset / 10.0f;
 		break;
 	case GeoRotation:
-		models[cur_idx].rotation.z += (float)yoffset / 10;
+		models[cur_idx].rotation.z += (float)yoffset / 10.0f;
+		break;
+
+	case LightEdit:
+		if (cur_light_mode == DirectionalLight || cur_light_mode == PointLight)
+		{
+			light[cur_light_mode].diffuse += Vector3(0.1f, 0.1f, 0.1f) * (float)yoffset;
+		}
+		if (cur_light_mode == SpotLight)
+		{
+			if (light[2].spotCutoff <= 0 && yoffset > 0)
+			{
+				break;
+			}
+			else if (light[2].spotCutoff >= degree_to_radian(90.0) && (float)yoffset < 0)
+			{
+				break;
+			}
+			else
+			{
+				light[2].spotCutoff -= (float)yoffset / 150.0f;
+			}
+		}
+		break;
+	case ShininessEdit:
+		shininess += (float)yoffset * 5.0f;
 		break;
 	default:
 		break;
@@ -517,20 +548,24 @@ static void cursor_pos_callback(GLFWwindow *window, double xpos, double ypos)
 	switch (cur_trans_mode)
 	{
 	case GeoTranslation:
-		models[cur_idx].position.x += dif_x / 100;
-		models[cur_idx].position.y += dif_y / 100;
+		models[cur_idx].position.x += dif_x / 100.0f;
+		models[cur_idx].position.y += dif_y / 100.0f;
 		break;
 	case GeoScaling:
-		models[cur_idx].scale.x += dif_x / 100;
-		models[cur_idx].scale.y += dif_y / 100;
+		models[cur_idx].scale.x += dif_x / 100.0f;
+		models[cur_idx].scale.y += dif_y / 100.0f;
 		break;
 	case GeoRotation:
-		models[cur_idx].rotation.x += PI / 180 * dif_y;
-		models[cur_idx].rotation.y -= PI / 180 * dif_x;
+		models[cur_idx].rotation.x += PI / 180.0f * dif_y;
+		models[cur_idx].rotation.y -= PI / 180.0f * dif_x;
 
 		// Alternative rotating direction
 		// models[cur_idx].rotation.x -= PI / 180 * dif_y;
 		// models[cur_idx].rotation.y += PI / 180 * dif_x;
+		break;
+	case LightEdit:
+		light[cur_light_mode].position[0] += dif_x / 250.0f;
+		light[cur_light_mode].position[1] += dif_y / 250.0f;
 		break;
 	default:
 		return;
