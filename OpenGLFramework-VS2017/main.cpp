@@ -281,7 +281,14 @@ void setPerspective()
 		0, 0, z, t_z,
 		0, 0, -1, 0);
 
-	project_matrix[0] = f / (proj.aspect / 2);
+	if (proj.aspect >= 1)
+	{
+		project_matrix[0] = f / (proj.aspect / 2);
+	}
+	else
+	{
+		project_matrix[5] = f * proj.aspect;
+	}
 }
 
 void setGLMatrix(GLfloat *glm, Matrix4 &m)
@@ -324,7 +331,15 @@ void ChangeSize(GLFWwindow *window, int width, int height)
 
 	// Perspective mode only
 	float f = 1 / tan(degree_to_radian(proj.fovy) / 2);
-	project_matrix[0] = f / (proj.aspect / 2);
+
+	if (proj.aspect >= 1)
+	{
+		project_matrix[0] = f / (proj.aspect / 2);
+	}
+	else
+	{
+		project_matrix[5] = f * proj.aspect;
+	}
 }
 
 // Render function for display rendering
