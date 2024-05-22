@@ -507,7 +507,7 @@ void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
 		}
 		break;
 	case ShininessEdit:
-		shininess += (float)yoffset * 5.0f;
+		shininess -= (float)yoffset * 5.0f;
 		break;
 	default:
 		break;
